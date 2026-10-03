@@ -60,6 +60,8 @@ pub struct App {
     pub test_runner: Option<TestRunnerState>,
     pub test_rx: Option<std::sync::mpsc::Receiver<String>>,
     pub show_test_runner: bool,
+    pub is_recording_macro: bool,
+    pub macro_events: Vec<crossterm::event::KeyEvent>,
 }
 
 pub struct FindState {
@@ -98,6 +100,8 @@ impl App {
             test_runner: None,
             test_rx: None,
             show_test_runner: false,
+            is_recording_macro: false,
+            macro_events: Vec::new(),
         }
     }
 

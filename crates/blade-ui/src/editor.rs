@@ -50,9 +50,44 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
 
     let mut lines = Vec::new();
     let start_line = scroll_y;
-    let end_line = (scroll_y + height).min(total_lines);
 
     let start_byte = text_buf.line_to_byte(start_line);
+
+    let mut sticky_header: Option<String> = None;
+    if let Some(tree) = &doc.highlighter.tree {
+        if let Some(mut node) = tree.root_node().descendant_for_byte_range(start_byte, start_byte) {
+            let mut target_node = None;
+            loop {
+                let kind = node.kind();
+                if kind == "function_item" || kind == "impl_item" {
+                    target_node = Some(node);
+                }
+                if let Some(parent) = node.parent() {
+                    node = parent;
+                } else {
+                    break;
+                }
+            }
+            if let Some(node) = target_node {
+                let start_row = node.start_position().row;
+                if start_row < start_line {
+                    let text = doc.buffer.text().line(start_row).to_string();
+                    sticky_header = Some(text.trim_end().to_string());
+                }
+            }
+        }
+    }
+
+    let mut display_height = height;
+    if let Some(ref header) = sticky_header {
+        let style = Style::default()
+            .bg(ratatui::style::Color::DarkGray)
+            .fg(ratatui::style::Color::White);
+        lines.push(Line::from(Span::styled(header.clone(), style)));
+        display_height = display_height.saturating_sub(1);
+    }
+
+    let end_line = (scroll_y + display_height).min(total_lines);
     let end_byte = text_buf.line_to_byte(end_line.min(total_lines));
     let highlights = if doc.highlighter.has_tree() {
         doc.highlighter
@@ -62,6 +97,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
     };
 
     let mut hl_idx = 0;
+    let mut bracket_depth: usize = 0;
 
     for i in start_line..end_line {
         let line_slice = text_buf.line(i);
@@ -123,18 +159,51 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
                     blade_syntax::highlighter::HighlightType::None
                 };
 
-            if new_hl_type != current_hl_type && !current_span_text.is_empty() {
-                // push span
-                let color = theme.highlight_color(current_hl_type);
-                spans.push(Span::styled(
-                    current_span_text.clone(),
-                    Style::default().fg(color),
-                ));
-                current_span_text.clear();
+            let is_opening = c == '(' || c == '{' || c == '[';
+            let is_closing = c == ')' || c == '}' || c == ']';
+
+            if is_closing {
+                bracket_depth = bracket_depth.saturating_sub(1);
             }
 
-            current_hl_type = new_hl_type;
-            current_span_text.push(c);
+            let bracket_color = if is_opening || is_closing {
+                Some(match bracket_depth % 3 {
+                    0 => ratatui::style::Color::Yellow,
+                    1 => ratatui::style::Color::Magenta,
+                    _ => ratatui::style::Color::Cyan,
+                })
+            } else {
+                None
+            };
+
+            if let Some(color) = bracket_color {
+                if !current_span_text.is_empty() {
+                    let span_color = theme.highlight_color(current_hl_type);
+                    spans.push(Span::styled(
+                        current_span_text.clone(),
+                        Style::default().fg(span_color),
+                    ));
+                    current_span_text.clear();
+                }
+                spans.push(Span::styled(c.to_string(), Style::default().fg(color)));
+                current_hl_type = new_hl_type;
+            } else {
+                if new_hl_type != current_hl_type && !current_span_text.is_empty() {
+                    let color = theme.highlight_color(current_hl_type);
+                    spans.push(Span::styled(
+                        current_span_text.clone(),
+                        Style::default().fg(color),
+                    ));
+                    current_span_text.clear();
+                }
+                current_hl_type = new_hl_type;
+                current_span_text.push(c);
+            }
+
+            if is_opening {
+                bracket_depth += 1;
+            }
+
             current_byte += c.len_utf8();
         }
 

@@ -134,8 +134,58 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
 }
 
 pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL) {
+        app.is_recording_macro = !app.is_recording_macro;
+        if app.is_recording_macro {
+            app.macro_events.clear();
+        }
+        return;
+    }
+
+    if key.code == KeyCode::Char('e') && key.modifiers.contains(KeyModifiers::CONTROL) {
+        if !app.is_recording_macro {
+            let events = app.macro_events.clone();
+            for e in events {
+                handle_key(e, app);
+            }
+        }
+        return;
+    }
+
+    if app.is_recording_macro {
+        app.macro_events.push(key);
+    }
+
+    if key.code == KeyCode::Up && key.modifiers.contains(KeyModifiers::ALT) && matches!(app.focus, app::Focus::Editor) {
+        let doc = app.active_document_mut();
+        if let Some(tree) = &doc.highlighter.tree {
+            let cursor = doc.cursors.primary();
+            let anchor_char = doc.buffer.line_col_to_char(cursor.anchor.line, cursor.anchor.col);
+            let head_char = doc.buffer.line_col_to_char(cursor.head.line, cursor.head.col);
+            let start_char = anchor_char.min(head_char);
+            let end_char = anchor_char.max(head_char);
+            
+            let start_byte = doc.buffer.text().char_to_byte(start_char);
+            let end_byte = doc.buffer.text().char_to_byte(end_char);
+            
+            if let Some(range) = blade_syntax::expand_selection(tree, start_byte, end_byte) {
+                let new_start_char = doc.buffer.text().byte_to_char(range.start);
+                let new_end_char = doc.buffer.text().byte_to_char(range.end);
+                
+                let (anchor_line, anchor_col) = doc.buffer.char_to_line_col(new_start_char);
+                let (head_line, head_col) = doc.buffer.char_to_line_col(new_end_char);
+                
+                let sel = doc.cursors.primary_mut();
+                sel.anchor = blade_core::cursor::Position { line: anchor_line, col: anchor_col };
+                sel.head = blade_core::cursor::Position { line: head_line, col: head_col };
+            }
+        }
+        return;
+    }
+
     if let Some(palette_state) = &mut app.palette {
-        use crossterm::event::KeyCode;
         match key.code {
             KeyCode::Esc => {
                 app.palette = None;

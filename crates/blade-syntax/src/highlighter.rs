@@ -34,10 +34,10 @@ pub enum HighlightType {
 
 /// Manages tree-sitter parsing and syntax highlighting for a buffer
 pub struct SyntaxHighlighter {
-    parser: Parser,
-    tree: Option<Tree>,
-    highlight_query: Option<Query>,
-    language_name: String,
+    pub parser: Parser,
+    pub tree: Option<Tree>,
+    pub highlight_query: Option<Query>,
+    pub language_name: String,
 }
 
 impl SyntaxHighlighter {
