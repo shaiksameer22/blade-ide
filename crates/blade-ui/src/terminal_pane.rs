@@ -24,7 +24,8 @@ impl<'a> TerminalPane<'a> {
 impl<'a> Widget for TerminalPane<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let block = Block::default()
-            .borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded)
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .title(if self.is_focused {
                 "Terminal (Focused)"
             } else {

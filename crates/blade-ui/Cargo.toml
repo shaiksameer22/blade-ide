@@ -7,6 +7,7 @@ license.workspace = true
 description = "Terminal UI layer for Blade"
 
 [dependencies]
+lsp-types.workspace = true
 blade-core = { path = "../blade-core" }
 blade-syntax = { path = "../blade-syntax" }
 blade-terminal = { path = "../blade-terminal" }

@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::theme::Theme;
 use ratatui::{
     layout::Rect,
-    style::Style,
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
     Frame,
@@ -55,7 +55,10 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
 
     let mut sticky_header: Option<String> = None;
     if let Some(tree) = &doc.highlighter.tree {
-        if let Some(mut node) = tree.root_node().descendant_for_byte_range(start_byte, start_byte) {
+        if let Some(mut node) = tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, start_byte)
+        {
             let mut target_node = None;
             loop {
                 let kind = node.kind();
@@ -143,8 +146,10 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
         }
 
         let mut current_hl_type = blade_syntax::highlighter::HighlightType::None;
+        let mut current_sem_token: Option<lsp_types::SemanticTokenType> = None;
 
         let mut current_span_text = String::new();
+        let mut col = scroll_x;
 
         for c in display_chars {
             // Advance hl_idx to the token containing current_byte
@@ -158,6 +163,8 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
                 } else {
                     blade_syntax::highlighter::HighlightType::None
                 };
+
+            let new_sem_token = doc.semantic_tokens.get(&(i, col)).cloned();
 
             let is_opening = c == '(' || c == '{' || c == '[';
             let is_closing = c == ')' || c == '}' || c == ']';
@@ -178,25 +185,37 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
 
             if let Some(color) = bracket_color {
                 if !current_span_text.is_empty() {
-                    let span_color = theme.highlight_color(current_hl_type);
-                    spans.push(Span::styled(
-                        current_span_text.clone(),
-                        Style::default().fg(span_color),
-                    ));
+                    let mut style = Style::default().fg(theme.highlight_color(current_hl_type));
+                    if let Some(st) = &current_sem_token {
+                        if st.as_str() == "mutable" {
+                            style = style.add_modifier(Modifier::UNDERLINED);
+                        } else if st.as_str() == "lifetime" {
+                            style = style.fg(ratatui::style::Color::LightMagenta);
+                        }
+                    }
+                    spans.push(Span::styled(current_span_text.clone(), style));
                     current_span_text.clear();
                 }
                 spans.push(Span::styled(c.to_string(), Style::default().fg(color)));
                 current_hl_type = new_hl_type;
+                current_sem_token = new_sem_token;
             } else {
-                if new_hl_type != current_hl_type && !current_span_text.is_empty() {
-                    let color = theme.highlight_color(current_hl_type);
-                    spans.push(Span::styled(
-                        current_span_text.clone(),
-                        Style::default().fg(color),
-                    ));
+                if (new_hl_type != current_hl_type || new_sem_token != current_sem_token)
+                    && !current_span_text.is_empty()
+                {
+                    let mut style = Style::default().fg(theme.highlight_color(current_hl_type));
+                    if let Some(st) = &current_sem_token {
+                        if st.as_str() == "mutable" {
+                            style = style.add_modifier(Modifier::UNDERLINED);
+                        } else if st.as_str() == "lifetime" {
+                            style = style.fg(ratatui::style::Color::LightMagenta);
+                        }
+                    }
+                    spans.push(Span::styled(current_span_text.clone(), style));
                     current_span_text.clear();
                 }
                 current_hl_type = new_hl_type;
+                current_sem_token = new_sem_token;
                 current_span_text.push(c);
             }
 
@@ -205,11 +224,19 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
             }
 
             current_byte += c.len_utf8();
+            col += 1;
         }
 
         if !current_span_text.is_empty() {
-            let color = theme.highlight_color(current_hl_type);
-            spans.push(Span::styled(current_span_text, Style::default().fg(color)));
+            let mut style = Style::default().fg(theme.highlight_color(current_hl_type));
+            if let Some(st) = &current_sem_token {
+                if st.as_str() == "mutable" {
+                    style = style.add_modifier(Modifier::UNDERLINED);
+                } else if st.as_str() == "lifetime" {
+                    style = style.fg(ratatui::style::Color::LightMagenta);
+                }
+            }
+            spans.push(Span::styled(current_span_text, style));
         }
 
         let line_style = if is_current_line {

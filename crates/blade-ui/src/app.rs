@@ -11,6 +11,7 @@ pub enum Focus {
     Terminal,
     Github,
     TestRunner,
+    Diagnostics,
 }
 
 #[derive(Default)]
@@ -62,6 +63,9 @@ pub struct App {
     pub show_test_runner: bool,
     pub is_recording_macro: bool,
     pub macro_events: Vec<crossterm::event::KeyEvent>,
+    pub peek_definition: Option<String>,
+    pub diagnostics: Vec<lsp_types::Diagnostic>,
+    pub show_diagnostics: bool,
 }
 
 pub struct FindState {
@@ -102,6 +106,9 @@ impl App {
             show_test_runner: false,
             is_recording_macro: false,
             macro_events: Vec::new(),
+            peek_definition: None,
+            diagnostics: Vec::new(),
+            show_diagnostics: false,
         }
     }
 

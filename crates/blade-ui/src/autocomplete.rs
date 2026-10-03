@@ -83,7 +83,12 @@ pub fn render(frame: &mut Frame, state: &AutocompleteState, theme: &crate::theme
         })
         .collect();
 
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded).bg(theme.editor_bg));
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .bg(theme.editor_bg),
+    );
 
     frame.render_widget(Clear, area);
     frame.render_widget(list, area);

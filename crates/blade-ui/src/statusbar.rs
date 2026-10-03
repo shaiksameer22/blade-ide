@@ -1,11 +1,6 @@
 use crate::app::App;
 use crate::theme::Theme;
-use ratatui::{
-    layout::Rect,
-    style::Style,
-    widgets::Paragraph,
-    Frame,
-};
+use ratatui::{layout::Rect, style::Style, widgets::Paragraph, Frame};
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
     let doc = app.active_document();
@@ -22,7 +17,8 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
     let pos = doc.cursors.primary().head;
     let pos_str = format!("Ln {}, Col {}", pos.line + 1, pos.col + 1);
 
-    let left = format!(" {} {modified}", file_name);
+    let breadcrumbs = format!("{} > struct App > fn render", file_name);
+    let left = format!(" {} {modified} | {}", file_name, breadcrumbs);
     let right = format!("{} | {} ", lang, pos_str);
 
     // Naive padding

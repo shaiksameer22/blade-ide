@@ -7,9 +7,16 @@ pub struct AppLayout {
     pub status_bar: Rect,
     pub terminal_area: Rect,
     pub test_runner_area: Rect,
+    pub diagnostics_area: Rect,
 }
 
-pub fn calculate_layout(area: Rect, show_explorer: bool, show_terminal: bool, show_test_runner: bool) -> AppLayout {
+pub fn calculate_layout(
+    area: Rect,
+    show_explorer: bool,
+    show_terminal: bool,
+    show_test_runner: bool,
+    show_diagnostics: bool,
+) -> AppLayout {
     // Top-level split: Main Content vs Status Bar
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -49,6 +56,16 @@ pub fn calculate_layout(area: Rect, show_explorer: bool, show_terminal: bool, sh
         test_runner_area = splits[1];
     }
 
+    let mut diagnostics_area = Rect::default();
+    if show_diagnostics {
+        let terminal_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+            .split(rest_area);
+        rest_area = terminal_chunks[0];
+        diagnostics_area = terminal_chunks[1];
+    }
+
     let (editor_area, terminal_area) = if show_terminal {
         let terminal_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -66,5 +83,6 @@ pub fn calculate_layout(area: Rect, show_explorer: bool, show_terminal: bool, sh
         status_bar,
         terminal_area,
         test_runner_area,
+        diagnostics_area,
     }
 }

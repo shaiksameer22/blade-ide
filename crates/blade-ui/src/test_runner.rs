@@ -9,7 +9,13 @@ use crate::app::{TestRunnerState, TestStatus};
 use crate::theme::Theme;
 use ansi_to_tui::IntoText;
 
-pub fn render(frame: &mut Frame, state: &TestRunnerState, area: Rect, theme: &Theme, is_focused: bool) {
+pub fn render(
+    frame: &mut Frame,
+    state: &TestRunnerState,
+    area: Rect,
+    theme: &Theme,
+    is_focused: bool,
+) {
     let border_color = if is_focused {
         theme.statusbar_bg // active color
     } else {
@@ -24,7 +30,8 @@ pub fn render(frame: &mut Frame, state: &TestRunnerState, area: Rect, theme: &Th
 
     let block = Block::default()
         .title(title)
-        .borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded)
+        .borders(Borders::ALL)
+        .border_type(ratatui::widgets::BorderType::Rounded)
         .border_style(Style::default().fg(border_color))
         .bg(theme.editor_bg);
 
@@ -32,7 +39,9 @@ pub fn render(frame: &mut Frame, state: &TestRunnerState, area: Rect, theme: &Th
         .output
         .iter()
         .map(|line| {
-            let parsed = line.into_text().unwrap_or_else(|_| ratatui::text::Text::raw(line));
+            let parsed = line
+                .into_text()
+                .unwrap_or_else(|_| ratatui::text::Text::raw(line));
             ListItem::new(parsed)
         })
         .collect();

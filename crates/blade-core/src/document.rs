@@ -14,6 +14,7 @@ pub struct Document {
     pub scroll_offset: usize,
     /// Horizontal scroll offset
     pub h_scroll_offset: usize,
+    pub semantic_tokens: std::collections::HashMap<(usize, usize), lsp_types::SemanticTokenType>,
 }
 
 impl Document {
@@ -26,6 +27,7 @@ impl Document {
             huge_file: false,
             scroll_offset: 0,
             h_scroll_offset: 0,
+            semantic_tokens: std::collections::HashMap::new(),
         }
     }
 
@@ -39,6 +41,7 @@ impl Document {
             huge_file,
             scroll_offset: 0,
             h_scroll_offset: 0,
+            semantic_tokens: std::collections::HashMap::new(),
         }
     }
 

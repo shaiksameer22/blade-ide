@@ -1,12 +1,14 @@
-pub mod github;
-pub mod github_pane;
 pub mod app;
 pub mod autocomplete;
+pub mod diagnostics_pane;
 pub mod editor;
 pub mod explorer;
+pub mod github;
+pub mod github_pane;
 pub mod keybindings;
 pub mod layout;
 pub mod palette;
+pub mod peek;
 pub mod statusbar;
 pub mod tabs;
 pub mod terminal_pane;
@@ -23,7 +25,13 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
     let theme = theme::Theme::dark();
     let area = frame.area();
 
-    let layout = layout::calculate_layout(area, app.show_explorer, app.show_terminal, app.show_test_runner);
+    let layout = layout::calculate_layout(
+        area,
+        app.show_explorer,
+        app.show_terminal,
+        app.show_test_runner,
+        app.show_diagnostics,
+    );
 
     if app.show_explorer {
         // Draw explorer background
@@ -82,6 +90,10 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
         }
     }
 
+    if app.show_diagnostics {
+        diagnostics_pane::render(frame, app, layout.diagnostics_area, &theme);
+    }
+
     if app.show_test_runner {
         if let Some(state) = &app.test_runner {
             let is_focused = matches!(app.focus, app::Focus::TestRunner);
@@ -131,6 +143,11 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
     if let Some(autocomplete_state) = &app.autocomplete {
         autocomplete::render(frame, autocomplete_state, &theme);
     }
+
+    // Render Peek Definition on top of everything if it exists
+    if app.peek_definition.is_some() {
+        peek::render(frame, app, area, &theme);
+    }
 }
 
 pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
@@ -158,28 +175,48 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
         app.macro_events.push(key);
     }
 
-    if key.code == KeyCode::Up && key.modifiers.contains(KeyModifiers::ALT) && matches!(app.focus, app::Focus::Editor) {
+    if app.peek_definition.is_some() {
+        if let crossterm::event::KeyCode::Esc = key.code {
+            app.peek_definition = None;
+            return;
+        }
+    }
+
+    if key.code == KeyCode::Up
+        && key.modifiers.contains(KeyModifiers::ALT)
+        && matches!(app.focus, app::Focus::Editor)
+    {
         let doc = app.active_document_mut();
         if let Some(tree) = &doc.highlighter.tree {
             let cursor = doc.cursors.primary();
-            let anchor_char = doc.buffer.line_col_to_char(cursor.anchor.line, cursor.anchor.col);
-            let head_char = doc.buffer.line_col_to_char(cursor.head.line, cursor.head.col);
+            let anchor_char = doc
+                .buffer
+                .line_col_to_char(cursor.anchor.line, cursor.anchor.col);
+            let head_char = doc
+                .buffer
+                .line_col_to_char(cursor.head.line, cursor.head.col);
             let start_char = anchor_char.min(head_char);
             let end_char = anchor_char.max(head_char);
-            
+
             let start_byte = doc.buffer.text().char_to_byte(start_char);
             let end_byte = doc.buffer.text().char_to_byte(end_char);
-            
+
             if let Some(range) = blade_syntax::expand_selection(tree, start_byte, end_byte) {
                 let new_start_char = doc.buffer.text().byte_to_char(range.start);
                 let new_end_char = doc.buffer.text().byte_to_char(range.end);
-                
+
                 let (anchor_line, anchor_col) = doc.buffer.char_to_line_col(new_start_char);
                 let (head_line, head_col) = doc.buffer.char_to_line_col(new_end_char);
-                
+
                 let sel = doc.cursors.primary_mut();
-                sel.anchor = blade_core::cursor::Position { line: anchor_line, col: anchor_col };
-                sel.head = blade_core::cursor::Position { line: head_line, col: head_col };
+                sel.anchor = blade_core::cursor::Position {
+                    line: anchor_line,
+                    col: anchor_col,
+                };
+                sel.head = blade_core::cursor::Position {
+                    line: head_line,
+                    col: head_col,
+                };
             }
         }
         return;
@@ -236,8 +273,11 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                 let (tx, rx) = std::sync::mpsc::channel();
                                 app.github_rx = Some(rx);
                                 tokio::spawn(async move {
-                                    let prs = crate::github::fetch_pull_requests().await.unwrap_or_default();
-                                    let issues = crate::github::fetch_issues().await.unwrap_or_default();
+                                    let prs = crate::github::fetch_pull_requests()
+                                        .await
+                                        .unwrap_or_default();
+                                    let issues =
+                                        crate::github::fetch_issues().await.unwrap_or_default();
                                     let _ = tx.send(crate::app::GithubState { prs, issues });
                                 });
                             }
@@ -262,7 +302,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
                                         .spawn();
-                                    
+
                                     if let Ok(mut child) = child {
                                         if let Some(stdout) = child.stdout.take() {
                                             let mut reader = BufReader::new(stdout).lines();
@@ -358,7 +398,9 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
     if matches!(app.focus, app::Focus::Terminal) {
         let action = keybindings::map_key(key);
         // Allow global shortcuts like ToggleTerminal and FocusNextPane
-        if action != keybindings::Action::ToggleTerminal && action != keybindings::Action::FocusNextPane {
+        if action != keybindings::Action::ToggleTerminal
+            && action != keybindings::Action::FocusNextPane
+        {
             if let Some(term) = &mut app.terminal {
                 use crossterm::event::{KeyCode, KeyModifiers};
                 let mut buf = Vec::new();
@@ -440,6 +482,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                 app::Focus::Palette => app::Focus::Editor,
                 app::Focus::TestRunner => app::Focus::Editor,
                 app::Focus::Github => app::Focus::Editor,
+                app::Focus::Diagnostics => app::Focus::Editor,
             };
             return;
         }
@@ -504,6 +547,11 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
         app::Focus::TestRunner => {
             if let crossterm::event::KeyCode::Esc = key.code {
                 app.show_test_runner = false;
+                app.focus = app::Focus::Editor;
+            }
+        }
+        app::Focus::Diagnostics => {
+            if let crossterm::event::KeyCode::Esc = key.code {
                 app.focus = app::Focus::Editor;
             }
         }

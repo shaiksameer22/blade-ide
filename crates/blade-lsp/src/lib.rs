@@ -40,6 +40,7 @@ pub struct Response {
 pub struct LspClient {
     next_id: AtomicI32,
     sender: mpsc::Sender<Message>,
+    pub diagnostics_rx: Option<mpsc::Receiver<lsp_types::PublishDiagnosticsParams>>,
 }
 
 enum Message {
@@ -60,6 +61,7 @@ impl LspClient {
         let stdout = child.stdout.take().context("No stdout")?;
 
         let (tx, rx) = mpsc::channel(32);
+        let (diag_tx, diag_rx) = mpsc::channel(32);
         
         let pending_requests = Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::<i32, oneshot::Sender<Response>>::new()));
 
@@ -137,6 +139,14 @@ impl LspClient {
                                 if let Some(tx) = pending_reqs_clone.lock().await.remove(&resp.id) {
                                     let _ = tx.send(resp);
                                 }
+                            } else if let Ok(notif) = serde_json::from_value::<Notification>(value) {
+                                if notif.method == "textDocument/publishDiagnostics" {
+                                    if let Some(params) = notif.params {
+                                        if let Ok(diag_params) = serde_json::from_value::<lsp_types::PublishDiagnosticsParams>(params) {
+                                            let _ = diag_tx.send(diag_params).await;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -147,6 +157,7 @@ impl LspClient {
         Ok(Self {
             next_id: AtomicI32::new(1),
             sender: tx,
+            diagnostics_rx: Some(diag_rx),
         })
     }
     
@@ -218,7 +229,66 @@ impl LspClient {
         
         let result = resp.result.context("No result in response")?;
         let comp_result: lsp_types::CompletionResponse = serde_json::from_value(result)?;
-        
         Ok(comp_result)
+    }
+
+    pub async fn text_document_semantic_tokens_full(&self, params: lsp_types::SemanticTokensParams) -> Result<Option<lsp_types::SemanticTokensResult>> {
+        let req = Request {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_id.fetch_add(1, Ordering::SeqCst),
+            method: "textDocument/semanticTokens/full".to_string(),
+            params: Some(serde_json::to_value(params)?),
+        };
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(Message::Request(req, tx)).await.context("Failed to send request")?;
+        let resp = rx.await.context("Failed to receive response")?;
+        if let Some(err) = resp.error { bail!("LSP Error: {:?}", err); }
+        let result = resp.result.context("No result in response")?;
+        Ok(serde_json::from_value(result)?)
+    }
+
+    pub async fn text_document_signature_help(&self, params: lsp_types::SignatureHelpParams) -> Result<Option<lsp_types::SignatureHelp>> {
+        let req = Request {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_id.fetch_add(1, Ordering::SeqCst),
+            method: "textDocument/signatureHelp".to_string(),
+            params: Some(serde_json::to_value(params)?),
+        };
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(Message::Request(req, tx)).await.context("Failed to send request")?;
+        let resp = rx.await.context("Failed to receive response")?;
+        if let Some(err) = resp.error { bail!("LSP Error: {:?}", err); }
+        let result = resp.result.context("No result in response")?;
+        Ok(serde_json::from_value(result)?)
+    }
+
+    pub async fn text_document_definition(&self, params: lsp_types::GotoDefinitionParams) -> Result<Option<lsp_types::GotoDefinitionResponse>> {
+        let req = Request {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_id.fetch_add(1, Ordering::SeqCst),
+            method: "textDocument/definition".to_string(),
+            params: Some(serde_json::to_value(params)?),
+        };
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(Message::Request(req, tx)).await.context("Failed to send request")?;
+        let resp = rx.await.context("Failed to receive response")?;
+        if let Some(err) = resp.error { bail!("LSP Error: {:?}", err); }
+        let result = resp.result.context("No result in response")?;
+        Ok(serde_json::from_value(result)?)
+    }
+
+    pub async fn text_document_rename(&self, params: lsp_types::RenameParams) -> Result<Option<lsp_types::WorkspaceEdit>> {
+        let req = Request {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_id.fetch_add(1, Ordering::SeqCst),
+            method: "textDocument/rename".to_string(),
+            params: Some(serde_json::to_value(params)?),
+        };
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(Message::Request(req, tx)).await.context("Failed to send request")?;
+        let resp = rx.await.context("Failed to receive response")?;
+        if let Some(err) = resp.error { bail!("LSP Error: {:?}", err); }
+        let result = resp.result.context("No result in response")?;
+        Ok(serde_json::from_value(result)?)
     }
 }
