@@ -85,3 +85,5 @@ env_logger.workspace = true
 dirs.workspace = true
 crossterm.workspace = true
 ratatui.workspace = true
+lsp-types = "0.97.0"
+url = "2.5.8"

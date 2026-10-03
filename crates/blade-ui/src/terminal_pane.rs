@@ -22,7 +22,7 @@ impl<'a> TerminalPane<'a> {
 }
 
 impl<'a> Widget for TerminalPane<'a> {
-    fn render(mut self, area: Rect, buf: &mut Buffer) {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         let block = Block::default()
             .borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded)
             .title(if self.is_focused {
@@ -44,10 +44,10 @@ impl<'a> Widget for TerminalPane<'a> {
             let parser = self.emulator.screen();
             let screen = parser.screen();
             let (rows, cols) = screen.size();
-            if rows != inner_area.height as u16 || cols != inner_area.width as u16 {
+            if rows != inner_area.height || cols != inner_area.width {
                 // Drop the lock before resizing
                 drop(parser);
-                let _ = self.emulator.resize(inner_area.width as u16, inner_area.height as u16);
+                let _ = self.emulator.resize(inner_area.width, inner_area.height);
             }
         }
 
@@ -55,9 +55,9 @@ impl<'a> Widget for TerminalPane<'a> {
         let screen = parser.screen();
         let (rows, cols) = screen.size();
 
-        for r in 0..rows.min(inner_area.height as u16) {
+        for r in 0..rows.min(inner_area.height) {
             let mut line_spans = Vec::new();
-            for c in 0..cols.min(inner_area.width as u16) {
+            for c in 0..cols.min(inner_area.width) {
                 let cell = screen.cell(r, c);
                 if let Some(cell) = cell {
                     let fg = convert_color(cell.fgcolor());
@@ -84,7 +84,7 @@ impl<'a> Widget for TerminalPane<'a> {
 
         if !screen.hide_cursor() {
             let (cr, cc) = screen.cursor_position();
-            if cr < inner_area.height as u16 && cc < inner_area.width as u16 {
+            if cr < inner_area.height && cc < inner_area.width {
                 if let Some(cell) = buf.cell_mut((inner_area.x + cc, inner_area.y + cr)) {
                     cell.set_style(cell.style().add_modifier(Modifier::REVERSED));
                 }

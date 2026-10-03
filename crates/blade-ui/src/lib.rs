@@ -14,10 +14,8 @@ pub mod test_runner;
 pub mod theme;
 
 use ratatui::{
-    layout::Rect,
     style::{Color, Style, Stylize},
-    text::Span,
-    widgets::{Block, Borders, Clear, List, ListItem},
+    widgets::{Block, Borders, List, ListItem},
     Frame,
 };
 
@@ -206,7 +204,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                     use tokio::io::{AsyncBufReadExt, BufReader};
                                     use tokio::process::Command;
 
-                                    let mut child = Command::new("cargo")
+                                    let child = Command::new("cargo")
                                         .arg("test")
                                         .arg("--color")
                                         .arg("always")
@@ -318,7 +316,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                     KeyCode::Char(c) => {
                         if key.modifiers.contains(KeyModifiers::CONTROL) {
                             let b = c as u8;
-                            if b >= b'a' && b <= b'z' {
+                            if b.is_ascii_lowercase() {
                                 buf.push(b - b'a' + 1);
                             }
                         } else {
@@ -477,7 +475,7 @@ fn handle_explorer_key(action: keybindings::Action, app: &mut app::App) {
                     app.explorer.toggle_expand();
                 } else {
                     // Open file
-                    if let Ok(_) = app.open_file(&entry.path) {
+                    if app.open_file(&entry.path).is_ok() {
                         app.focus = app::Focus::Editor;
                     }
                 }

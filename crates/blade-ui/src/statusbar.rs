@@ -2,9 +2,8 @@ use crate::app::App;
 use crate::theme::Theme;
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Paragraph},
+    style::Style,
+    widgets::Paragraph,
     Frame,
 };
 

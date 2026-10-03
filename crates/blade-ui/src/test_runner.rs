@@ -1,13 +1,13 @@
 use ratatui::{
     layout::Rect,
     style::{Color, Style, Stylize},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem},
     Frame,
 };
 
 use crate::app::{TestRunnerState, TestStatus};
 use crate::theme::Theme;
+use ansi_to_tui::IntoText;
 
 pub fn render(frame: &mut Frame, state: &TestRunnerState, area: Rect, theme: &Theme, is_focused: bool) {
     let border_color = if is_focused {
@@ -32,17 +32,8 @@ pub fn render(frame: &mut Frame, state: &TestRunnerState, area: Rect, theme: &Th
         .output
         .iter()
         .map(|line| {
-            // Very simple color mapping based on common cargo test output
-            let style = if line.contains("ok") || line.contains("passed") {
-                Style::default().fg(Color::Green)
-            } else if line.contains("FAILED") || line.contains("error") {
-                Style::default().fg(Color::Red)
-            } else if line.contains("running") || line.contains("test") {
-                Style::default().fg(Color::Cyan)
-            } else {
-                Style::default().fg(theme.editor_fg)
-            };
-            ListItem::new(Line::from(vec![Span::styled(line, style)]))
+            let parsed = line.into_text().unwrap_or_else(|_| ratatui::text::Text::raw(line));
+            ListItem::new(parsed)
         })
         .collect();
 

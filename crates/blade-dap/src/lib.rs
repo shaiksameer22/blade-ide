@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use log::{debug, error};
+use log::error;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,7 +49,7 @@ pub struct DapClient {
 }
 
 impl DapClient {
-    pub fn new(mut cmd: Command) -> Result<Self> {
+    pub fn new(mut cmd: Command) -> Result<(Self, mpsc::Receiver<DapEvent>)> {
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -62,6 +62,8 @@ impl DapClient {
         let (tx, mut rx) = mpsc::channel::<String>(32);
         let pending_requests: Arc<Mutex<HashMap<usize, oneshot::Sender<Result<DapResponse>>>>> = Arc::new(Mutex::new(HashMap::new()));
         let pending_requests_clone = pending_requests.clone();
+        
+        let (event_tx, event_rx) = mpsc::channel::<DapEvent>(100);
 
         // Write task
         tokio::spawn(async move {
@@ -114,25 +116,32 @@ impl DapClient {
                     }
 
                     if let Ok(msg) = String::from_utf8(buf) {
-                        if let Ok(response) = serde_json::from_str::<DapResponse>(&msg) {
-                            if response.type_ == "response" {
-                                let mut pending = pending_requests_clone.lock().await;
-                                if let Some(sender) = pending.remove(&response.request_seq) {
-                                    let _ = sender.send(Ok(response));
+                        if let Ok(value) = serde_json::from_str::<Value>(&msg) {
+                            if let Some(type_str) = value.get("type").and_then(|t| t.as_str()) {
+                                if type_str == "response" {
+                                    if let Ok(response) = serde_json::from_value::<DapResponse>(value) {
+                                        let mut pending = pending_requests_clone.lock().await;
+                                        if let Some(sender) = pending.remove(&response.request_seq) {
+                                            let _ = sender.send(Ok(response));
+                                        }
+                                    }
+                                } else if type_str == "event" {
+                                    if let Ok(event) = serde_json::from_value::<DapEvent>(value) {
+                                        let _ = event_tx.send(event).await;
+                                    }
                                 }
                             }
                         }
-                        // Handle events here as well if needed
                     }
                 }
             }
         });
 
-        Ok(Self {
+        Ok((Self {
             tx,
             next_seq: Arc::new(AtomicUsize::new(1)),
             pending_requests,
-        })
+        }, event_rx))
     }
 
     pub async fn send_request<T: Serialize, R: DeserializeOwned>(

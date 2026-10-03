@@ -63,8 +63,15 @@ async fn main() -> Result<()> {
         }
     }
 
+    let (completion_tx, mut completion_rx) = tokio::sync::mpsc::unbounded_channel();
+
     // Main event loop
     loop {
+        // Handle incoming completions
+        while let Ok(state) = completion_rx.try_recv() {
+            app.autocomplete = Some(state);
+        }
+
         // Render
         terminal.draw(|frame| {
             blade_ui::render(frame, &mut app);
@@ -80,18 +87,53 @@ async fn main() -> Result<()> {
                     if c.is_alphabetic() || c == '.' || c == ':' {
                         if let Some(ref lsp) = lsp_client {
                             if let Some(doc) = app.documents.get(app.active_doc) {
-                                // In a real app we'd trigger an async task here and update state when it returns.
-                                // For now we'll just mock the completion popup manually if missing, to show the UI
-                                if app.autocomplete.is_none() {
-                                    app.autocomplete = Some(blade_ui::autocomplete::AutocompleteState::new(
-                                        vec![
-                                            blade_ui::autocomplete::CompletionItem { label: "print!".to_string(), detail: Some("macro".to_string()) },
-                                            blade_ui::autocomplete::CompletionItem { label: "println!".to_string(), detail: Some("macro".to_string()) },
-                                            blade_ui::autocomplete::CompletionItem { label: "String".to_string(), detail: Some("struct".to_string()) },
-                                            blade_ui::autocomplete::CompletionItem { label: "Vec".to_string(), detail: Some("struct".to_string()) },
-                                        ],
-                                        (app.explorer.selected as u16 * 0 + 30, 5) // Mock position
-                                    ));
+                                if let Some(path) = doc.buffer.path() {
+                                    if let Ok(url) = url::Url::from_file_path(path) {
+                                        if let Ok(uri) = url.as_str().parse::<lsp_types::Uri>() {
+                                            let pos = doc.cursors.primary().head;
+                                            let position = lsp_types::Position {
+                                                line: pos.line as u32,
+                                                character: pos.col as u32,
+                                            };
+                                            let params = lsp_types::CompletionParams {
+                                                text_document_position: lsp_types::TextDocumentPositionParams {
+                                                    text_document: lsp_types::TextDocumentIdentifier { uri },
+                                                    position,
+                                                },
+                                                work_done_progress_params: Default::default(),
+                                                partial_result_params: Default::default(),
+                                                context: None,
+                                            };
+                                            let lsp_clone = lsp.clone();
+                                            let tx_clone = completion_tx.clone();
+                                            
+                                            // Mock position for UI for now
+                                            let popup_x = 30;
+                                            let popup_y = 5;
+                                            
+                                            tokio::spawn(async move {
+                                                if let Ok(resp) = lsp_clone.text_document_completion(params).await {
+                                                    let items = match resp {
+                                                        lsp_types::CompletionResponse::Array(arr) => arr,
+                                                        lsp_types::CompletionResponse::List(list) => list.items,
+                                                    };
+                                                    
+                                                    let mut completions = Vec::new();
+                                                    for item in items {
+                                                        completions.push(blade_ui::autocomplete::CompletionItem {
+                                                            label: item.label,
+                                                            detail: item.detail,
+                                                        });
+                                                    }
+                                                    
+                                                    if !completions.is_empty() {
+                                                        let state = blade_ui::autocomplete::AutocompleteState::new(completions, (popup_x, popup_y));
+                                                        let _ = tx_clone.send(state);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
                                 }
                             }
                         }

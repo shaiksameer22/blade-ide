@@ -2,9 +2,9 @@ use crate::app::App;
 use crate::theme::Theme;
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::Style,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
     Frame,
 };
 
@@ -56,7 +56,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
     let end_byte = text_buf.line_to_byte(end_line.min(total_lines));
     let highlights = if doc.highlighter.has_tree() {
         doc.highlighter
-            .highlights(start_byte, end_byte, &doc.buffer.text())
+            .highlights(start_byte, end_byte, doc.buffer.text())
     } else {
         Vec::new()
     };
@@ -65,7 +65,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
 
     for i in start_line..end_line {
         let line_slice = text_buf.line(i);
-        let mut line_byte_start = text_buf.line_to_byte(i);
+        let line_byte_start = text_buf.line_to_byte(i);
 
         let mut line_str = line_slice.to_string();
         if line_str.ends_with('\n') {
@@ -83,7 +83,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
                 .skip(scroll_x)
                 .take(width.saturating_sub(line_num_width + 2))
         } else {
-            "".chars().skip(0).take(0)
+            "".chars().skip(1).take(0)
         };
 
         // Gutter (line numbers)

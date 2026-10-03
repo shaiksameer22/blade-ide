@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Color, Style, Stylize},
+    style::Style,
     widgets::{Block, Borders, Row, Table},
 };
 use crate::app::GithubState;
