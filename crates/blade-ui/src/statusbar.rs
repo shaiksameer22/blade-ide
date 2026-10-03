@@ -19,7 +19,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
 
     let breadcrumbs = format!("{} > struct App > fn render", file_name);
     let left = format!(" {} {modified} | {}", file_name, breadcrumbs);
-    let right = format!("{} | {} ", lang, pos_str);
+    let right = format!("{} | {} | Render: {:?}", lang, pos_str, app.last_render_time);
 
     // Naive padding
     let padding = area

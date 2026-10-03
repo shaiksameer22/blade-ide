@@ -4,6 +4,7 @@ use blade_core::document::Document;
 use std::path::PathBuf;
 
 /// Main application state
+#[derive(Debug, PartialEq)]
 pub enum Focus {
     Editor,
     Explorer,
@@ -14,7 +15,16 @@ pub enum Focus {
     Diagnostics,
     MergeTool,
     FileHistory,
+    MarkdownPreview,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum InputMode {
+    Normal,
+    Insert,
+    Visual,
+}
+
 
 #[derive(Default)]
 pub struct GithubState {
@@ -75,6 +85,8 @@ pub struct App {
     pub file_history_scroll: usize,
     pub file_history_rx: Option<std::sync::mpsc::Receiver<Vec<String>>>,
     pub db: Option<blade_core::db::DbManager>,
+    pub input_mode: InputMode,
+    pub last_render_time: std::time::Duration,
 }
 
 pub struct FindState {
@@ -125,6 +137,8 @@ impl App {
             file_history_scroll: 0,
             file_history_rx: None,
             db: blade_core::db::DbManager::new(&cwd).ok(),
+            input_mode: InputMode::Insert,
+            last_render_time: std::time::Duration::ZERO,
         };
 
         if let Some(db) = &app.db {
@@ -132,13 +146,11 @@ impl App {
                 if !state.open_files.is_empty() {
                     let mut first = true;
                     for file in state.open_files {
-                        if let Ok(_) = app.open_file(std::path::Path::new(&file)) {
-                            if first {
-                                // Remove the initial empty document
-                                app.documents.remove(0);
-                                app.active_doc = app.documents.len().saturating_sub(1);
-                                first = false;
-                            }
+                        if app.open_file(std::path::Path::new(&file)).is_ok() && first {
+                            // Remove the initial empty document
+                            app.documents.remove(0);
+                            app.active_doc = app.documents.len().saturating_sub(1);
+                            first = false;
                         }
                     }
                     if app.documents.len() > state.active_file_index {

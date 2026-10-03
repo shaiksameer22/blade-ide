@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
 
     if let Some(ref lsp) = lsp_client {
         // Initialize it
-        if let Ok(_) = lsp.initialize(None).await {
+        if lsp.initialize(None).await.is_ok() {
             app.status_message = Some(("LSP connected: rust-analyzer".to_string(), std::time::Instant::now()));
         }
     }
@@ -73,9 +73,11 @@ async fn main() -> Result<()> {
         }
 
         // Render
+        let render_start = std::time::Instant::now();
         terminal.draw(|frame| {
             blade_ui::render(frame, &mut app);
         })?;
+        app.last_render_time = render_start.elapsed();
 
         // Handle input
         if event::poll(Duration::from_millis(16))? {

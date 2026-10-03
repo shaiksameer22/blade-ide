@@ -93,7 +93,7 @@ impl SyntaxHighlighter {
         while let Some(m) = matches.next() {
             for cap in m.captures {
                 let node = cap.node;
-                let capture_name_ref: &str = query.capture_names()[cap.index as usize].as_ref();
+                let capture_name_ref: &str = query.capture_names()[cap.index as usize];
                 
                 let highlight_type = match capture_name_ref {
                     "keyword" | "conditional" | "repeat" => HighlightType::Keyword,

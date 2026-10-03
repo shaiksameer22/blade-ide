@@ -1,4 +1,5 @@
 pub mod app;
+pub mod markdown;
 pub mod autocomplete;
 pub mod diagnostics_pane;
 pub mod editor;
@@ -166,6 +167,10 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
         file_history::render(frame, app, &theme);
     }
 
+    if matches!(app.focus, app::Focus::MarkdownPreview) {
+        markdown::render(frame, app, layout.editor_area, &theme);
+    }
+
     if let Some(palette_state) = &app.palette {
         palette::render(frame, palette_state, &theme);
     }
@@ -305,6 +310,9 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                 app.focus = app::Focus::MergeTool;
                                 let sample = "hello\n<<<<<<< HEAD\nours code\n=======\ntheirs code\n>>>>>>> feature\nworld\n";
                                 app.merge_tool = Some(crate::merge_tool::MergeToolState::parse(sample));
+                            }
+                            "Editor: Markdown Preview" => {
+                                app.focus = app::Focus::MarkdownPreview;
                             }
                             "Task: Run Task" => {
                                 app.palette = Some(palette::PaletteState::new_task_runner(&app.cwd));
@@ -570,6 +578,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                 app::Focus::Diagnostics => app::Focus::Editor,
                 app::Focus::MergeTool => app::Focus::Editor,
                 app::Focus::FileHistory => app::Focus::Editor,
+                app::Focus::MarkdownPreview => app::Focus::Editor,
             };
             return;
         }
@@ -670,6 +679,11 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                         app.file_history_scroll += 1;
                     }
                 }
+            }
+        }
+        app::Focus::MarkdownPreview => {
+            if let crossterm::event::KeyCode::Esc = key.code {
+                app.focus = app::Focus::Editor;
             }
         }
     }

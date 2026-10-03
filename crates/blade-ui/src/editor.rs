@@ -149,9 +149,8 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
         let mut current_sem_token: Option<lsp_types::SemanticTokenType> = None;
 
         let mut current_span_text = String::new();
-        let mut col = scroll_x;
 
-        for c in display_chars {
+        for (col, c) in (scroll_x..).zip(display_chars) {
             // Advance hl_idx to the token containing current_byte
             while hl_idx < highlights.len() && highlights[hl_idx].end_byte <= current_byte {
                 hl_idx += 1;
@@ -224,7 +223,6 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
             }
 
             current_byte += c.len_utf8();
-            col += 1;
         }
 
         if !current_span_text.is_empty() {

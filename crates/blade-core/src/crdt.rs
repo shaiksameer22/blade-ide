@@ -13,6 +13,15 @@ impl SharedDocument {
         let text_ref = doc.get_or_insert_text("content");
         Self { doc, text_ref }
     }
+}
+
+impl Default for SharedDocument {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SharedDocument {
 
     pub fn sync_from_local(&mut self, local_text: &str) {
         let mut txn = self.doc.transact_mut();

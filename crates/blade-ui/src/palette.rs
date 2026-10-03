@@ -31,12 +31,10 @@ impl PaletteState {
 
         let walker = WalkBuilder::new(cwd).hidden(true).git_ignore(true).build();
 
-        for result in walker {
-            if let Ok(entry) = result {
-                if entry.file_type().map_or(false, |ft| ft.is_file()) {
-                    if let Ok(path) = entry.path().strip_prefix(cwd) {
-                        all_items.push(path.to_string_lossy().to_string());
-                    }
+        for entry in walker.flatten() {
+            if entry.file_type().is_some_and(|ft| ft.is_file()) {
+                if let Ok(path) = entry.path().strip_prefix(cwd) {
+                    all_items.push(path.to_string_lossy().to_string());
                 }
             }
         }
@@ -58,6 +56,8 @@ impl PaletteState {
             "Editor: Toggle Explorer".to_string(),
             "Editor: Next Tab".to_string(),
             "Editor: Previous Tab".to_string(),
+            "Editor: Toggle Merge Tool".to_string(),
+            "Editor: Markdown Preview".to_string(),
             "GitHub: View PRs & Issues".to_string(),
             "Task: Run Task".to_string(),
             "Test: Run All Tests".to_string(),
@@ -109,7 +109,7 @@ impl PaletteState {
             }
         }
 
-        matches.sort_by(|a, b| b.1.cmp(&a.1));
+        matches.sort_by_key(|a| std::cmp::Reverse(a.1));
         self.matches = matches;
         self.selected = 0;
     }
@@ -190,10 +190,9 @@ pub fn render(frame: &mut Frame, state: &PaletteState, theme: &Theme) {
     for (i, (text, _score, indices)) in state.matches.iter().enumerate() {
         let mut spans = Vec::new();
 
-        let mut char_idx = 0;
         let mut matched_idx_pos = 0;
 
-        for (_byte_idx, c) in text.char_indices() {
+        for (char_idx, (_byte_idx, c)) in text.char_indices().enumerate() {
             let is_matched =
                 if matched_idx_pos < indices.len() && indices[matched_idx_pos] == char_idx {
                     matched_idx_pos += 1;
@@ -210,7 +209,6 @@ pub fn render(frame: &mut Frame, state: &PaletteState, theme: &Theme) {
             } else {
                 spans.push(Span::raw(c.to_string()));
             }
-            char_idx += 1;
         }
 
         let style = if i == state.selected {
