@@ -245,6 +245,17 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
             Style::default()
         };
 
+        if is_current_line {
+            if let Some(blames) = &app.git_blame {
+                if let Some(blame) = blames.get(&(i + 1)) {
+                    spans.push(Span::styled(
+                        format!("    {} • {}, {} • {}", blame.author, blame.date, blame.summary, ""),
+                        Style::default().fg(ratatui::style::Color::DarkGray),
+                    ));
+                }
+            }
+        }
+
         lines.push(Line::from(spans).style(line_style));
     }
 

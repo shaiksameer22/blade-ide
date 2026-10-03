@@ -12,6 +12,8 @@ pub enum Focus {
     Github,
     TestRunner,
     Diagnostics,
+    MergeTool,
+    FileHistory,
 }
 
 #[derive(Default)]
@@ -66,6 +68,12 @@ pub struct App {
     pub peek_definition: Option<String>,
     pub diagnostics: Vec<lsp_types::Diagnostic>,
     pub show_diagnostics: bool,
+    pub merge_tool: Option<crate::merge_tool::MergeToolState>,
+    pub git_blame: Option<std::collections::HashMap<usize, crate::git_blame::BlameInfo>>,
+    pub git_blame_rx: Option<std::sync::mpsc::Receiver<(std::path::PathBuf, std::collections::HashMap<usize, crate::git_blame::BlameInfo>)>>,
+    pub file_history: Option<Vec<String>>,
+    pub file_history_scroll: usize,
+    pub file_history_rx: Option<std::sync::mpsc::Receiver<Vec<String>>>,
 }
 
 pub struct FindState {
@@ -109,6 +117,12 @@ impl App {
             peek_definition: None,
             diagnostics: Vec::new(),
             show_diagnostics: false,
+            merge_tool: None,
+            git_blame: None,
+            git_blame_rx: None,
+            file_history: None,
+            file_history_scroll: 0,
+            file_history_rx: None,
         }
     }
 
@@ -144,6 +158,17 @@ impl App {
 
         self.documents.push(doc);
         self.active_doc = self.documents.len() - 1;
+
+        let path_buf = path.to_path_buf();
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.git_blame_rx = Some(rx);
+        self.git_blame = None;
+        tokio::task::spawn_blocking(move || {
+            if let Ok(blame) = crate::git_blame::get_blame_for_file(&path_buf) {
+                let _ = tx.send((path_buf, blame));
+            }
+        });
+
         Ok(())
     }
 

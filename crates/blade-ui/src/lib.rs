@@ -3,10 +3,13 @@ pub mod autocomplete;
 pub mod diagnostics_pane;
 pub mod editor;
 pub mod explorer;
+pub mod file_history;
 pub mod github;
 pub mod github_pane;
+pub mod git_blame;
 pub mod keybindings;
 pub mod layout;
+pub mod merge_tool;
 pub mod palette;
 pub mod peek;
 pub mod statusbar;
@@ -14,6 +17,7 @@ pub mod tabs;
 pub mod terminal_pane;
 pub mod test_runner;
 pub mod theme;
+pub mod tasks;
 
 use ratatui::{
     style::{Color, Style, Stylize},
@@ -110,6 +114,24 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
         }
     }
 
+    if let Some(rx) = &app.git_blame_rx {
+        if let Ok((path, blame)) = rx.try_recv() {
+            if let Some(doc_path) = app.active_document().buffer.path() {
+                if doc_path == &path {
+                    app.git_blame = Some(blame);
+                }
+            }
+            app.git_blame_rx = None;
+        }
+    }
+
+    if let Some(rx) = &app.file_history_rx {
+        if let Ok(history) = rx.try_recv() {
+            app.file_history = Some(history);
+            app.file_history_rx = None;
+        }
+    }
+
     if let Some(rx) = &app.test_rx {
         while let Ok(line) = rx.try_recv() {
             if let Some(state) = &mut app.test_runner {
@@ -134,6 +156,14 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
                 .block(ratatui::widgets::Block::default().borders(ratatui::widgets::Borders::ALL));
             frame.render_widget(p, layout.editor_area);
         }
+    } else if matches!(app.focus, app::Focus::MergeTool) {
+        if let Some(state) = &app.merge_tool {
+            merge_tool::render(frame, state, layout.editor_area, &theme);
+        }
+    }
+
+    if matches!(app.focus, app::Focus::FileHistory) {
+        file_history::render(frame, app, &theme);
     }
 
     if let Some(palette_state) = &app.palette {
@@ -253,6 +283,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                             "Editor: Next Tab" => {
                                 if !app.documents.is_empty() {
                                     app.active_doc = (app.active_doc + 1) % app.documents.len();
+                                    trigger_blame_fetch(app);
                                 }
                             }
                             "Editor: Previous Tab" => {
@@ -262,10 +293,21 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                     } else {
                                         app.active_doc -= 1;
                                     }
+                                    trigger_blame_fetch(app);
                                 }
                             }
                             "App: Quit" => {
                                 app.should_quit = true;
+                            }
+                            "Editor: Toggle Merge Tool" => {
+                                app.focus = app::Focus::MergeTool;
+                                let sample = "hello\n<<<<<<< HEAD\nours code\n=======\ntheirs code\n>>>>>>> feature\nworld\n";
+                                app.merge_tool = Some(crate::merge_tool::MergeToolState::parse(sample));
+                            }
+                            "Task: Run Task" => {
+                                app.palette = Some(palette::PaletteState::new_task_runner(&app.cwd));
+                                app.focus = app::Focus::Palette;
+                                return;
                             }
                             "GitHub: View PRs & Issues" => {
                                 app.focus = app::Focus::Github;
@@ -332,8 +374,49 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                     }
                                 });
                             }
+                            "Git: File History" => {
+                                let path_buf = app.active_document().buffer.path().map(|p| p.to_path_buf());
+                                if let Some(path_buf) = path_buf {
+                                    app.focus = app::Focus::FileHistory;
+                                    app.file_history = None;
+                                    app.file_history_scroll = 0;
+                                    
+                                    let (tx, rx) = std::sync::mpsc::channel();
+                                    app.file_history_rx = Some(rx);
+                                    
+                                    tokio::spawn(async move {
+                                        use tokio::process::Command;
+                                        if let Ok(output) = Command::new("git")
+                                            .arg("log")
+                                            .arg("--oneline")
+                                            .arg(&path_buf)
+                                            .output()
+                                            .await 
+                                        {
+                                            let s = String::from_utf8_lossy(&output.stdout);
+                                            let lines: Vec<String> = s.lines().map(|l| l.to_string()).collect();
+                                            let _ = tx.send(lines);
+                                        }
+                                    });
+                                }
+                            }
                             _ => {}
                         },
+                        palette::PaletteType::TaskRunner => {
+                            let tasks = crate::tasks::get_tasks(&app.cwd);
+                            if let Some(task) = tasks.iter().find(|t| t.name == text) {
+                                app.show_terminal = true;
+                                if app.terminal.is_none() {
+                                    app.terminal = blade_terminal::TerminalEmulator::new(80, 24).ok();
+                                }
+                                app.focus = app::Focus::Terminal;
+                                if let Some(term) = &mut app.terminal {
+                                    let mut cmd = task.command.clone();
+                                    cmd.push('\r');
+                                    let _ = term.write(cmd.as_bytes());
+                                }
+                            }
+                        }
                     }
                 }
                 app.palette = None;
@@ -483,12 +566,15 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                 app::Focus::TestRunner => app::Focus::Editor,
                 app::Focus::Github => app::Focus::Editor,
                 app::Focus::Diagnostics => app::Focus::Editor,
+                app::Focus::MergeTool => app::Focus::Editor,
+                app::Focus::FileHistory => app::Focus::Editor,
             };
             return;
         }
         keybindings::Action::NextTab => {
             if !app.documents.is_empty() {
                 app.active_doc = (app.active_doc + 1) % app.documents.len();
+                trigger_blame_fetch(app);
             }
             return;
         }
@@ -499,6 +585,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                 } else {
                     app.active_doc -= 1;
                 }
+                trigger_blame_fetch(app);
             }
             return;
         }
@@ -555,6 +642,46 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                 app.focus = app::Focus::Editor;
             }
         }
+        app::Focus::MergeTool => {
+            if let crossterm::event::KeyCode::Esc = key.code {
+                app.focus = app::Focus::Editor;
+            } else if let crossterm::event::KeyCode::Char('a') = key.code {
+                if let Some(st) = &mut app.merge_tool {
+                    st.result = st.ours.clone();
+                }
+            } else if let crossterm::event::KeyCode::Char('t') = key.code {
+                if let Some(st) = &mut app.merge_tool {
+                    st.result = st.theirs.clone();
+                }
+            }
+        }
+        app::Focus::FileHistory => {
+            if let crossterm::event::KeyCode::Esc = key.code {
+                app.focus = app::Focus::Editor;
+            } else if let crossterm::event::KeyCode::Up = key.code {
+                app.file_history_scroll = app.file_history_scroll.saturating_sub(1);
+            } else if let crossterm::event::KeyCode::Down = key.code {
+                if let Some(history) = &app.file_history {
+                    if app.file_history_scroll + 1 < history.len() {
+                        app.file_history_scroll += 1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn trigger_blame_fetch(app: &mut app::App) {
+    if let Some(path) = app.active_document().buffer.path() {
+        let path_buf = path.to_path_buf();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.git_blame_rx = Some(rx);
+        app.git_blame = None;
+        tokio::task::spawn_blocking(move || {
+            if let Ok(blame) = crate::git_blame::get_blame_for_file(&path_buf) {
+                let _ = tx.send((path_buf, blame));
+            }
+        });
     }
 }
 

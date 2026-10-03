@@ -13,6 +13,7 @@ use ratatui::{
 pub enum PaletteType {
     FileFinder,
     CommandPalette,
+    TaskRunner,
 }
 
 pub struct PaletteState {
@@ -58,6 +59,7 @@ impl PaletteState {
             "Editor: Next Tab".to_string(),
             "Editor: Previous Tab".to_string(),
             "GitHub: View PRs & Issues".to_string(),
+            "Task: Run Task".to_string(),
             "Test: Run All Tests".to_string(),
             "App: Quit".to_string(),
         ];
@@ -74,8 +76,23 @@ impl PaletteState {
         state
     }
 
+    pub fn new_task_runner(cwd: &std::path::Path) -> Self {
+        let tasks = crate::tasks::get_tasks(cwd);
+        let all_items = tasks.into_iter().map(|t| t.name).collect();
+        let mut state = Self {
+            palette_type: PaletteType::TaskRunner,
+            query: String::new(),
+            selected: 0,
+            all_items,
+            matches: Vec::new(),
+            matcher: SkimMatcherV2::default(),
+        };
+        state.update_matches();
+        state
+    }
+
     pub fn update_matches(&mut self) {
-        if self.query.is_empty() && matches!(self.palette_type, PaletteType::CommandPalette) {
+        if self.query.is_empty() && (matches!(self.palette_type, PaletteType::CommandPalette) || matches!(self.palette_type, PaletteType::TaskRunner)) {
             self.matches = self
                 .all_items
                 .iter()
@@ -137,6 +154,7 @@ pub fn render(frame: &mut Frame, state: &PaletteState, theme: &Theme) {
     let title = match state.palette_type {
         PaletteType::FileFinder => "Search Files (Ctrl+P)",
         PaletteType::CommandPalette => "Command Palette (Ctrl+Shift+P)",
+        PaletteType::TaskRunner => "Task Runner",
     };
 
     let block = Block::default()

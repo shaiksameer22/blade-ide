@@ -9,7 +9,7 @@ use ratatui::{
     Frame,
 };
 
-pub fn render(frame: &mut Frame, app: &mut App, area: Rect, theme: &Theme) {
+pub fn render(frame: &mut Frame, app: &mut App, area: Rect, _theme: &Theme) {
     let items: Vec<ListItem> = app
         .diagnostics
         .iter()
