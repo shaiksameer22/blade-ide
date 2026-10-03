@@ -17,3 +17,5 @@ blade-syntax = { path = "../blade-syntax" }
 sled.workspace = true
 bincode.workspace = true
 serde.workspace = true
+tokio.workspace = true
+yrs = "0.19"

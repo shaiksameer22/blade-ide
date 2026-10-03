@@ -2,6 +2,7 @@ use crate::buffer::Buffer;
 use crate::cursor::CursorManager;
 use crate::history::History;
 use blade_syntax::highlighter::SyntaxHighlighter;
+use crate::crdt::SharedDocument;
 
 /// A Document ties together a Buffer, Cursor state, and Edit history
 pub struct Document {
@@ -15,6 +16,7 @@ pub struct Document {
     /// Horizontal scroll offset
     pub h_scroll_offset: usize,
     pub semantic_tokens: std::collections::HashMap<(usize, usize), lsp_types::SemanticTokenType>,
+    pub crdt: Option<SharedDocument>,
 }
 
 impl Document {
@@ -28,6 +30,7 @@ impl Document {
             scroll_offset: 0,
             h_scroll_offset: 0,
             semantic_tokens: std::collections::HashMap::new(),
+            crdt: None,
         }
     }
 
@@ -42,8 +45,10 @@ impl Document {
             scroll_offset: 0,
             h_scroll_offset: 0,
             semantic_tokens: std::collections::HashMap::new(),
+            crdt: None,
         }
     }
+
 
     /// Get the title for display (filename or "Untitled")
     pub fn title(&self) -> String {
