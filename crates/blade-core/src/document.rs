@@ -9,6 +9,7 @@ pub struct Document {
     pub cursors: CursorManager,
     pub history: History,
     pub highlighter: SyntaxHighlighter,
+    pub huge_file: bool,
     /// Viewport scroll offset
     pub scroll_offset: usize,
     /// Horizontal scroll offset
@@ -22,17 +23,20 @@ impl Document {
             cursors: CursorManager::new(),
             history: History::new(1000),
             highlighter: SyntaxHighlighter::new(),
+            huge_file: false,
             scroll_offset: 0,
             h_scroll_offset: 0,
         }
     }
 
     pub fn from_buffer(buffer: Buffer) -> Self {
+        let huge_file = buffer.text().len_bytes() > 5_000_000;
         Self {
             buffer,
             cursors: CursorManager::new(),
             history: History::new(1000),
             highlighter: SyntaxHighlighter::new(),
+            huge_file,
             scroll_offset: 0,
             h_scroll_offset: 0,
         }

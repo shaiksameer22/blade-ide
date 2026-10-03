@@ -126,7 +126,7 @@ impl App {
             if let Some((language, query)) = blade_syntax::languages::get_language(lang_name) {
                 if !query.is_empty() {
                     let _ = doc.highlighter.set_language(language, lang_name, query);
-                    doc.highlighter.parse(doc.buffer.text());
+                    doc.highlighter.parse(doc.buffer.text(), doc.huge_file);
                 }
             }
         }

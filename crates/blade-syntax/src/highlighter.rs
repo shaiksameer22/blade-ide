@@ -62,7 +62,11 @@ impl SyntaxHighlighter {
     }
 
     /// Parse or incrementally re-parse the buffer
-    pub fn parse(&mut self, rope: &Rope) {
+    pub fn parse(&mut self, rope: &Rope, huge_file: bool) {
+        if huge_file {
+            self.tree = None;
+            return;
+        }
         let text = rope.to_string(); // TODO: Use rope callback for zero-copy
         self.tree = self.parser.parse(&text, self.tree.as_ref());
     }
