@@ -74,6 +74,7 @@ pub struct App {
     pub file_history: Option<Vec<String>>,
     pub file_history_scroll: usize,
     pub file_history_rx: Option<std::sync::mpsc::Receiver<Vec<String>>>,
+    pub db: Option<blade_core::db::DbManager>,
 }
 
 pub struct FindState {
@@ -92,7 +93,7 @@ pub enum Dialog {
 
 impl App {
     pub fn new(cwd: PathBuf) -> Self {
-        Self {
+        let mut app = Self {
             documents: vec![Document::new()],
             active_doc: 0,
             explorer: FileExplorer::new(&cwd),
@@ -102,7 +103,7 @@ impl App {
             find_state: None,
             should_quit: false,
             status_message: None,
-            cwd,
+            cwd: cwd.clone(),
             dialog: None,
             autocomplete: None,
             terminal: None,
@@ -123,7 +124,31 @@ impl App {
             file_history: None,
             file_history_scroll: 0,
             file_history_rx: None,
+            db: blade_core::db::DbManager::new(&cwd).ok(),
+        };
+
+        if let Some(db) = &app.db {
+            if let Ok(Some(state)) = db.load_workspace_state() {
+                if !state.open_files.is_empty() {
+                    let mut first = true;
+                    for file in state.open_files {
+                        if let Ok(_) = app.open_file(std::path::Path::new(&file)) {
+                            if first {
+                                // Remove the initial empty document
+                                app.documents.remove(0);
+                                app.active_doc = app.documents.len().saturating_sub(1);
+                                first = false;
+                            }
+                        }
+                    }
+                    if app.documents.len() > state.active_file_index {
+                        app.active_doc = state.active_file_index;
+                    }
+                }
+            }
         }
+        
+        app
     }
 
     pub fn active_document(&self) -> &Document {
@@ -139,6 +164,7 @@ impl App {
         for (i, doc) in self.documents.iter().enumerate() {
             if doc.buffer.path() == Some(&path.to_path_buf()) {
                 self.active_doc = i;
+                self.save_workspace_state();
                 return Ok(());
             }
         }
@@ -169,6 +195,7 @@ impl App {
             }
         });
 
+        self.save_workspace_state();
         Ok(())
     }
 
@@ -184,10 +211,27 @@ impl App {
         } else if self.active_doc >= self.documents.len() {
             self.active_doc = self.documents.len() - 1;
         }
+        self.save_workspace_state();
         true
     }
 
     pub fn set_status(&mut self, msg: impl Into<String>) {
         self.status_message = Some((msg.into(), std::time::Instant::now()));
+    }
+
+    pub fn save_workspace_state(&self) {
+        if let Some(db) = &self.db {
+            let mut open_files = Vec::new();
+            for doc in &self.documents {
+                if let Some(path) = doc.buffer.path() {
+                    open_files.push(path.to_string_lossy().into_owned());
+                }
+            }
+            let state = blade_core::db::WorkspaceState {
+                open_files,
+                active_file_index: self.active_doc,
+            };
+            let _ = db.save_workspace_state(&state);
+        }
     }
 }

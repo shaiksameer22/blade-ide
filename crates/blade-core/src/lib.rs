@@ -3,3 +3,4 @@ pub mod cursor;
 pub mod history;
 pub mod document;
 pub mod clipboard;
+pub mod db;

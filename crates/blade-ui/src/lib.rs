@@ -284,6 +284,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                 if !app.documents.is_empty() {
                                     app.active_doc = (app.active_doc + 1) % app.documents.len();
                                     trigger_blame_fetch(app);
+                                    app.save_workspace_state();
                                 }
                             }
                             "Editor: Previous Tab" => {
@@ -294,6 +295,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                                         app.active_doc -= 1;
                                     }
                                     trigger_blame_fetch(app);
+                                    app.save_workspace_state();
                                 }
                             }
                             "App: Quit" => {
@@ -575,6 +577,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
             if !app.documents.is_empty() {
                 app.active_doc = (app.active_doc + 1) % app.documents.len();
                 trigger_blame_fetch(app);
+                app.save_workspace_state();
             }
             return;
         }
@@ -586,6 +589,7 @@ pub fn handle_key(key: crossterm::event::KeyEvent, app: &mut app::App) {
                     app.active_doc -= 1;
                 }
                 trigger_blame_fetch(app);
+                app.save_workspace_state();
             }
             return;
         }

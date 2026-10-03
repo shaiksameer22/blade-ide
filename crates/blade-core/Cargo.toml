@@ -14,3 +14,6 @@ log.workspace = true
 unicode-segmentation.workspace = true
 arboard.workspace = true
 blade-syntax = { path = "../blade-syntax" }
+sled.workspace = true
+bincode.workspace = true
+serde.workspace = true
