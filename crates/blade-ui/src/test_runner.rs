@@ -24,7 +24,7 @@ pub fn render(frame: &mut Frame, state: &TestRunnerState, area: Rect, theme: &Th
 
     let block = Block::default()
         .title(title)
-        .borders(Borders::ALL)
+        .borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded)
         .border_style(Style::default().fg(border_color))
         .bg(theme.editor_bg);
 

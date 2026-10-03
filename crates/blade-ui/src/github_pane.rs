@@ -27,7 +27,7 @@ pub fn render(frame: &mut ratatui::Frame, state: &GithubState, area: ratatui::la
         Constraint::Min(20),
     ])
     .header(pr_header)
-    .block(Block::default().title(" Pull Requests (GH) ").borders(Borders::ALL).border_style(Style::default().fg(theme.statusbar_bg)));
+    .block(Block::default().title(" Pull Requests (GH) ").borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded).border_style(Style::default().fg(theme.statusbar_bg)));
 
     frame.render_widget(pr_table, chunks[0]);
 
@@ -47,7 +47,7 @@ pub fn render(frame: &mut ratatui::Frame, state: &GithubState, area: ratatui::la
         Constraint::Min(20),
     ])
     .header(issue_header)
-    .block(Block::default().title(" Issues (GH) ").borders(Borders::ALL).border_style(Style::default().fg(theme.statusbar_bg)));
+    .block(Block::default().title(" Issues (GH) ").borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded).border_style(Style::default().fg(theme.statusbar_bg)));
 
     frame.render_widget(issue_table, chunks[1]);
 }

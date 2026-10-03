@@ -1,0 +1,12 @@
+[package]
+name = "blade-vshost"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description.workspace = true
+
+[dependencies]
+deno_core = "0.280"
+anyhow = { workspace = true }
+tokio = { workspace = true }

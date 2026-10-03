@@ -141,7 +141,7 @@ pub fn render(frame: &mut Frame, state: &PaletteState, theme: &Theme) {
 
     let block = Block::default()
         .title(title)
-        .borders(Borders::ALL)
+        .borders(Borders::ALL).border_type(ratatui::widgets::BorderType::Rounded)
         .border_style(Style::default().fg(theme.statusbar_bg))
         .bg(theme.editor_bg);
 

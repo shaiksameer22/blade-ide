@@ -4,7 +4,7 @@ members = [
     "crates/blade-syntax",
     "crates/blade-ui",
     "crates/blade-lsp", "crates/blade-terminal",
-    "crates/blade-dap", "crates/blade-plugin",
+    "crates/blade-dap", "crates/blade-plugin", "crates/blade-vshost",
 ]
 resolver = "2"
 
