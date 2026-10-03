@@ -1,0 +1,22 @@
+[package]
+name = "blade-ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Terminal UI layer for Blade"
+
+[dependencies]
+blade-core = { path = "../blade-core" }
+blade-syntax = { path = "../blade-syntax" }
+blade-terminal = { path = "../blade-terminal" }
+vt100 = "0.15"
+ratatui.workspace = true
+crossterm.workspace = true
+anyhow.workspace = true
+log.workspace = true
+fuzzy-matcher = "0.3.7"
+ignore = "0.4.33"
+serde_json = "1.0.151"
+serde.workspace = true
+tokio = { workspace = true, features = ["process", "rt", "macros", "sync"] }

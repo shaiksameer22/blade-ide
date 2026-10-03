@@ -1,0 +1,15 @@
+[package]
+name = "blade-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core text editing engine for Blade"
+
+[dependencies]
+ropey.workspace = true
+anyhow.workspace = true
+log.workspace = true
+unicode-segmentation.workspace = true
+arboard.workspace = true
+blade-syntax = { path = "../blade-syntax" }

@@ -1,0 +1,26 @@
+[package]
+name = "blade-syntax"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Tree-sitter syntax highlighting engine for Blade"
+
+[dependencies]
+ropey.workspace = true
+tree-sitter.workspace = true
+tree-sitter-rust.workspace = true
+tree-sitter-python.workspace = true
+tree-sitter-javascript.workspace = true
+tree-sitter-typescript.workspace = true
+tree-sitter-c.workspace = true
+tree-sitter-cpp.workspace = true
+tree-sitter-go.workspace = true
+tree-sitter-json.workspace = true
+tree-sitter-toml.workspace = true
+tree-sitter-html.workspace = true
+tree-sitter-css.workspace = true
+tree-sitter-bash.workspace = true
+tree-sitter-markdown.workspace = true
+anyhow.workspace = true
+streaming-iterator = "0.1.9"

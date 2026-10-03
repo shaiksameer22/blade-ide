@@ -1,0 +1,12 @@
+[package]
+name = "blade-plugin"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+extism = "1.30.0"
+log.workspace = true

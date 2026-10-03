@@ -1,0 +1,60 @@
+use crate::buffer::Buffer;
+use crate::cursor::CursorManager;
+use crate::history::History;
+use blade_syntax::highlighter::SyntaxHighlighter;
+
+/// A Document ties together a Buffer, Cursor state, and Edit history
+pub struct Document {
+    pub buffer: Buffer,
+    pub cursors: CursorManager,
+    pub history: History,
+    pub highlighter: SyntaxHighlighter,
+    /// Viewport scroll offset
+    pub scroll_offset: usize,
+    /// Horizontal scroll offset
+    pub h_scroll_offset: usize,
+}
+
+impl Document {
+    pub fn new() -> Self {
+        Self {
+            buffer: Buffer::new(),
+            cursors: CursorManager::new(),
+            history: History::new(1000),
+            highlighter: SyntaxHighlighter::new(),
+            scroll_offset: 0,
+            h_scroll_offset: 0,
+        }
+    }
+
+    pub fn from_buffer(buffer: Buffer) -> Self {
+        Self {
+            buffer,
+            cursors: CursorManager::new(),
+            history: History::new(1000),
+            highlighter: SyntaxHighlighter::new(),
+            scroll_offset: 0,
+            h_scroll_offset: 0,
+        }
+    }
+
+    /// Get the title for display (filename or "Untitled")
+    pub fn title(&self) -> String {
+        self.buffer
+            .path()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Untitled".to_string())
+    }
+
+    /// Whether this document has unsaved modifications
+    pub fn is_modified(&self) -> bool {
+        self.buffer.is_modified()
+    }
+}
+
+impl Default for Document {
+    fn default() -> Self {
+        Self::new()
+    }
+}
