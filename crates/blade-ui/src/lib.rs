@@ -739,7 +739,7 @@ fn handle_editor_key(action: keybindings::Action, app: &mut app::App) {
             let mut pos = doc.cursors.primary().head;
             if pos.line > 0 {
                 pos.line -= 1;
-                let line_len = doc.buffer.line(pos.line).len_chars().saturating_sub(1);
+                let line_len = doc.buffer.line(pos.line).len_chars();
                 pos.col = pos.col.min(line_len);
                 doc.cursors.set_position(pos);
             }
@@ -749,7 +749,7 @@ fn handle_editor_key(action: keybindings::Action, app: &mut app::App) {
             let mut pos = doc.cursors.primary().head;
             if pos.line + 1 < doc.buffer.line_count() {
                 pos.line += 1;
-                let line_len = doc.buffer.line(pos.line).len_chars().saturating_sub(1);
+                let line_len = doc.buffer.line(pos.line).len_chars();
                 pos.col = pos.col.min(line_len);
                 doc.cursors.set_position(pos);
             }
@@ -761,14 +761,14 @@ fn handle_editor_key(action: keybindings::Action, app: &mut app::App) {
                 pos.col -= 1;
             } else if pos.line > 0 {
                 pos.line -= 1;
-                pos.col = doc.buffer.line(pos.line).len_chars().saturating_sub(1);
+                pos.col = doc.buffer.line(pos.line).len_chars();
             }
             doc.cursors.set_position(pos);
         }
         keybindings::Action::MoveRight => {
             let doc = app.active_document_mut();
             let mut pos = doc.cursors.primary().head;
-            let line_len = doc.buffer.line(pos.line).len_chars().saturating_sub(1);
+            let line_len = doc.buffer.line(pos.line).len_chars();
             if pos.col < line_len {
                 pos.col += 1;
             } else if pos.line + 1 < doc.buffer.line_count() {

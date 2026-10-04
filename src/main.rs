@@ -26,7 +26,11 @@ async fn main() -> Result<()> {
     // Initialize terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(
+        stdout, 
+        EnterAlternateScreen, 
+        crossterm::cursor::SetCursorStyle::SteadyBar
+    )?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -152,7 +156,11 @@ async fn main() -> Result<()> {
 
     // Restore terminal
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(), 
+        LeaveAlternateScreen,
+        crossterm::cursor::SetCursorStyle::DefaultUserShape
+    )?;
     terminal.show_cursor()?;
 
     Ok(())
