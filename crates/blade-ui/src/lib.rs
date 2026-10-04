@@ -19,6 +19,7 @@ pub mod terminal_pane;
 pub mod test_runner;
 pub mod theme;
 pub mod tasks;
+pub mod neon_panels;
 
 use ratatui::{
     style::{Color, Style, Stylize},
@@ -105,6 +106,9 @@ pub fn render(frame: &mut Frame, app: &mut app::App) {
             test_runner::render(frame, state, layout.test_runner_area, &theme, is_focused);
         }
     }
+
+    neon_panels::render_outline(layout.outline_area, frame);
+    neon_panels::render_system_monitor(layout.system_area, frame);
 
     statusbar::render(frame, app, layout.status_bar, &theme);
 
