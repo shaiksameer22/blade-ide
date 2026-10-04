@@ -47,7 +47,6 @@ async fn main() -> Result<()> {
         app.open_file(&cli.path.canonicalize()?)?;
     }
 
-    // Try to start LSP client in background
     let lsp_client = match blade_lsp::LspClient::new("rust-analyzer").await {
         Ok(client) => Some(std::sync::Arc::new(client)),
         Err(e) => {
@@ -56,14 +55,16 @@ async fn main() -> Result<()> {
         }
     };
 
-    if let Some(ref lsp) = lsp_client {
-        // Initialize it
-        if lsp.initialize(None).await.is_ok() {
-            app.status_message = Some(("LSP connected: rust-analyzer".to_string(), std::time::Instant::now()));
-        }
-    }
-
     let (completion_tx, mut completion_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    if let Some(ref lsp) = lsp_client {
+        let lsp_clone = lsp.clone();
+        tokio::spawn(async move {
+            if lsp_clone.initialize(None).await.is_ok() {
+                // Background initialization finished
+            }
+        });
+    }
 
     // Main event loop
     loop {
